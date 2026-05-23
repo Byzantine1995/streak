@@ -740,11 +740,13 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   // ═══════════════════════════════════════
   let cloudRecordId = null;
 
+  let _lastSyncError = '';
+
   async function syncToCloud(d) {
     const cfg = loadConfig();
     if (!cfg.supabaseUrl || !cfg.supabaseKey || !cfg.syncKey) {
       setCloudDot('');
-      return;
+      return { ok: false, error: 'Not configured' };
     }
     setCloudDot('syncing');
     try {
@@ -762,21 +764,30 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
         { headers: { ...headers, 'Prefer': '' } }
       );
 
-      if (lookup.ok) {
-        const rows = await lookup.json();
-        if (rows.length > 0) {
-          cloudRecordId = rows[0].id;
-          // Update existing
-          const patchResp = await fetch(base + '?id=eq.' + encodeURIComponent(cloudRecordId), {
-            method: 'PATCH',
-            headers: { ...headers, 'Prefer': 'return=representation' },
-            body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }),
-          });
-          if (patchResp.ok) {
-            setCloudDot('synced');
-            return;
-          }
+      if (!lookup.ok) {
+        const errText = await lookup.text();
+        _lastSyncError = 'Lookup failed (' + lookup.status + '): ' + errText;
+        setCloudDot('error');
+        return { ok: false, error: _lastSyncError };
+      }
+
+      const rows = await lookup.json();
+      if (rows.length > 0) {
+        cloudRecordId = rows[0].id;
+        const patchResp = await fetch(base + '?id=eq.' + encodeURIComponent(cloudRecordId), {
+          method: 'PATCH',
+          headers: { ...headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify({ data: d, updated_at: new Date().toISOString() }),
+        });
+        if (patchResp.ok) {
+          setCloudDot('synced');
+          _lastSyncError = '';
+          return { ok: true };
         }
+        const errText = await patchResp.text();
+        _lastSyncError = 'Update failed (' + patchResp.status + '): ' + errText;
+        setCloudDot('error');
+        return { ok: false, error: _lastSyncError };
       }
 
       // Insert new record
@@ -793,11 +804,17 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
         const inserted = await insertResp.json();
         if (inserted.length > 0) cloudRecordId = inserted[0].id;
         setCloudDot('synced');
-      } else {
-        setCloudDot('error');
+        _lastSyncError = '';
+        return { ok: true };
       }
-    } catch(e) {
+      const errText = await insertResp.text();
+      _lastSyncError = 'Insert failed (' + insertResp.status + '): ' + errText;
       setCloudDot('error');
+      return { ok: false, error: _lastSyncError };
+    } catch(e) {
+      _lastSyncError = 'Network error: ' + e.message;
+      setCloudDot('error');
+      return { ok: false, error: _lastSyncError };
     }
   }
 
@@ -1228,16 +1245,28 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
 
     if (config.supabaseUrl && config.supabaseKey && config.syncKey) {
       setCloudDot('syncing');
-      // Push current data to cloud
       cloudRecordId = null;
-      await syncToCloud(data);
+      const result = await syncToCloud(data);
       updateCloudStatusUI();
-      showToast('Cloud sync configured & data uploaded!');
+      if (result.ok) {
+        showToast('Cloud sync configured & data uploaded!');
+      } else {
+        showToast('Sync failed: ' + (result.error || 'Unknown error'));
+        $cloudStatus.style.display = 'flex';
+        $cloudStatus.style.color = '#ef4444';
+        $cloudStatus.innerHTML = '&#10060; ' + escapeHtml(result.error || 'Unknown error');
+      }
     } else {
       setCloudDot('');
       updateCloudStatusUI();
       showToast('Cloud config cleared.');
     }
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
   }
 
   async function pullCloudData() {
