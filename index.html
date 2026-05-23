@@ -1246,6 +1246,21 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
     if (config.supabaseUrl && config.supabaseKey && config.syncKey) {
       setCloudDot('syncing');
       cloudRecordId = null;
+
+      // Pull first to avoid overwriting cloud data with empty local data
+      const cloudData = await pullFromCloud();
+      if (cloudData && cloudData.streaks && cloudData.streaks.length > data.streaks.length) {
+        // Cloud has more — restore from cloud
+        data = cloudData;
+        if (!data.currentStart) data.currentStart = new Date().toISOString();
+        saveData(data);
+        render();
+        updateCloudStatusUI();
+        showToast('Cloud data restored! ' + data.streaks.length + ' streak(s) loaded.');
+        return;
+      }
+
+      // Local has equal or more — push to cloud
       const result = await syncToCloud(data);
       updateCloudStatusUI();
       if (result.ok) {
@@ -1276,17 +1291,26 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
       return;
     }
     const cloudData = await pullFromCloud();
-    if (cloudData) {
-      // Simple merge: use whichever has more streaks, or newer currentStart
-      if (cloudData.streaks.length >= data.streaks.length) {
+    if (cloudData && cloudData.streaks) {
+      const localCount = data.streaks.length;
+      const cloudCount = cloudData.streaks.length;
+      // Always show what was found, merge intelligently
+      if (cloudCount > localCount || (cloudCount === localCount && cloudData.streaks.length > 0)) {
         data = cloudData;
         if (!data.currentStart) data.currentStart = new Date().toISOString();
         saveData(data);
         render();
-        showToast('Pulled from cloud: ' + data.streaks.length + ' streak(s).');
-      } else {
-        showToast('Local data has more history. Pushing to cloud instead.');
+        showToast('Restored from cloud: ' + data.streaks.length + ' streak(s).');
+      } else if (localCount > cloudCount) {
+        showToast('Local has more data (' + localCount + ' vs ' + cloudCount + '). Pushing to cloud.');
         await syncToCloud(data);
+      } else {
+        // Equal and both empty
+        if (cloudCount === 0) {
+          showToast('No data found in cloud or locally.');
+        } else {
+          showToast('Cloud and local are in sync (' + cloudCount + ' streaks).');
+        }
       }
     }
   }
