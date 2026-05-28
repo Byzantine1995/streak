@@ -455,17 +455,30 @@
   }
   .history-list {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 2px 12px;
+    scrollbar-width: none;
   }
+  .history-list::-webkit-scrollbar { display: none; }
   .history-item {
     display: flex;
-    align-items: center;
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: space-between;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 14px 16px;
+    width: 160px;
+    min-height: 80px;
+    scroll-snap-align: start;
+    gap: 8px;
   }
   .history-item .hi-left {
     display: flex;
@@ -1027,13 +1040,13 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
             label: 'Trend',
             data: trendData,
             type: 'line',
-            borderColor: 'rgba(107,155,210,0.7)',
-            backgroundColor: 'transparent',
-            borderWidth: 2, borderDash: [6, 4],
+            borderColor: 'rgba(107,155,210,0.8)',
+            backgroundColor: 'rgba(107,155,210,0.05)',
+            borderWidth: 2.5,
             pointRadius: 4,
             pointBackgroundColor: 'rgba(107,155,210,1)',
             pointBorderColor: 'rgba(107,155,210,0.3)',
-            pointBorderWidth: 2, tension: 0.1, fill: false,
+            pointBorderWidth: 2, tension: 0.4, fill: true,
           }] : []),
         ],
       },
@@ -1076,6 +1089,20 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
           },
         },
       },
+      plugins: [{
+        id: 'trendGradient',
+        beforeDatasetsDraw(chart) {
+          const datasets = chart.data.datasets;
+          if (datasets.length < 2) return;
+          const ds = datasets[1];
+          const { ctx, chartArea: { top, bottom } } = chart;
+          const gradient = ctx.createLinearGradient(0, top, 0, bottom);
+          gradient.addColorStop(0, 'rgba(107,155,210,0.32)');
+          gradient.addColorStop(0.65, 'rgba(107,155,210,0.06)');
+          gradient.addColorStop(1, 'rgba(107,155,210,0.0)');
+          ds.backgroundColor = gradient;
+        }
+      }],
     });
   }
 
