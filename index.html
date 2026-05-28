@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Streak">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0a0e27">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='sg' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0%25' stop-color='%23c41e3a'/%3E%3Cstop offset='50%25' stop-color='%23e04050'/%3E%3Cstop offset='100%25' stop-color='%23c9a84c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='512' height='512' rx='112' fill='%230a0e27'/%3E%3Crect width='512' height='512' rx='112' fill='none' stroke='rgba(255,255,255,0.08)' stroke-width='3'/%3E%3Cline x1='70' y1='420' x2='430' y2='70' stroke='url(%23sg)' stroke-width='26' stroke-linecap='round'/%3E%3Cline x1='70' y1='420' x2='430' y2='70' stroke='rgba(255,255,255,0.35)' stroke-width='5' stroke-linecap='round'/%3E%3Ctext x='200' y='360' fill='%23c41e3a' font-size='280' font-weight='900' font-family='system-ui,-apple-system,sans-serif' text-anchor='middle'%3ES%3C/text%3E%3Ctext x='335' y='370' fill='%23ffffff' font-size='72' font-weight='700' font-family='system-ui,-apple-system,sans-serif' letter-spacing='8'%3ETREAK%3C/text%3E%3Ctext x='55' y='90' fill='%23c9a84c' font-size='38'%3E%E2%98%85%3C/text%3E%3Ctext x='440' y='465' fill='%23c9a84c' font-size='28' opacity='0.7'%3E%E2%98%85%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" id="appleTouchIcon" href="">
 <title>Streak</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -743,6 +743,31 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
     return getDaysSince(data.currentStart);
   }
 
+  function lastStreakDays() {
+    if (data.streaks.length === 0) return 0;
+    return data.streaks[data.streaks.length - 1].days;
+  }
+
+  function generateIconSVG(days) {
+    const num = days >= 100 ? '99+' : String(days);
+    const fontSize = days >= 100 ? 140 : days >= 10 ? 220 : 240;
+    const y = days >= 100 ? 290 : 300;
+    return 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
+      + '<rect width="512" height="512" rx="112" fill="#000000"/>'
+      + '<rect width="512" height="512" rx="112" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>'
+      + '<text x="256" y="' + y + '" fill="#ffffff" font-size="' + fontSize + '" font-weight="900" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle" font-stretch="condensed">' + num + '</text>'
+      + '<text x="256" y="400" fill="#ffffff" fill-opacity="0.45" font-size="52" font-weight="700" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle" letter-spacing="8">DAYS</text>'
+      + '</svg>'
+    );
+  }
+
+  function updateAppIcon() {
+    const icon = document.getElementById('appleTouchIcon');
+    if (icon) icon.href = generateIconSVG(lastStreakDays());
+    setupManifest();
+  }
+
   function setCloudDot(state) {
     const dot = document.getElementById('cloudDot');
     dot.className = 'cloud-dot ' + state;
@@ -982,6 +1007,7 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
 
     renderChart();
     updateChartVisibility();
+    updateAppIcon();
   }
 
   function updateChartVisibility() {
@@ -1388,28 +1414,34 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   // ═══════════════════════════════════════
   // Inline Manifest for PWA
   // ═══════════════════════════════════════
-  (function setupManifest() {
+  function setupManifest() {
     const manifest = {
       name: 'Streak',
       short_name: 'Streak',
       description: 'Track your streak. Stay disciplined.',
       display: 'standalone',
       orientation: 'portrait',
-      background_color: '#0a0e27',
-      theme_color: '#0a0e27',
+      background_color: '#000000',
+      theme_color: '#000000',
       icons: [{
-        src: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="sg" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#c41e3a"/><stop offset="50%" stop-color="#e04050"/><stop offset="100%" stop-color="#c9a84c"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="#0a0e27"/><rect width="512" height="512" rx="112" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"/><line x1="70" y1="420" x2="430" y2="70" stroke="url(#sg)" stroke-width="26" stroke-linecap="round"/><line x1="70" y1="420" x2="430" y2="70" stroke="rgba(255,255,255,0.35)" stroke-width="5" stroke-linecap="round"/><text x="200" y="360" fill="#c41e3a" font-size="280" font-weight="900" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle">S</text><text x="335" y="370" fill="#ffffff" font-size="72" font-weight="700" font-family="system-ui,-apple-system,sans-serif" letter-spacing="8">TREAK</text><text x="55" y="90" fill="#c9a84c" font-size="38">★</text><text x="440" y="465" fill="#c9a84c" font-size="28" opacity="0.7">★</text></svg>'),
+        src: generateIconSVG(lastStreakDays()),
         sizes: '512x512',
         type: 'image/svg+xml',
         purpose: 'any maskable',
       }],
     };
     const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-    const link = document.createElement('link');
-    link.rel = 'manifest';
+    let link = document.getElementById('manifestLink');
+    if (!link) {
+      link = document.createElement('link');
+      link.id = 'manifestLink';
+      link.rel = 'manifest';
+      document.head.appendChild(link);
+    } else {
+      URL.revokeObjectURL(link.href);
+    }
     link.href = URL.createObjectURL(blob);
-    document.head.appendChild(link);
-  })();
+  }
 
   // ═══════════════════════════════════════
   // Init
