@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Streak">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
+<link rel="icon" type="image/svg+xml" id="favicon" href="">
 <link rel="apple-touch-icon" id="appleTouchIcon" href="">
 <title>Streak</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -677,6 +678,10 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
           <input type="password" id="syncKey" placeholder="Choose a secret word or phrase" autocomplete="off">
           <p class="hint">This identifies your data. Keep it private — anyone with this key can access your streaks.</p>
         </div>
+        <div class="btn-row" style="margin-bottom:8px">
+          <button class="btn btn-outline" id="btnSaveConfig">&#128190; Save</button>
+          <button class="btn btn-outline" id="btnClearConfig">&#128465; Clear</button>
+        </div>
         <div class="btn-row">
           <button class="btn btn-accent" id="btnSaveCloud">Save &amp; Test Sync</button>
           <button class="btn btn-outline" id="btnPullCloud">Pull from Cloud</button>
@@ -763,9 +768,27 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   }
 
   function updateAppIcon() {
-    const icon = document.getElementById('appleTouchIcon');
-    if (icon) icon.href = generateIconSVG(lastStreakDays());
+    const current = getCurrentStreak();
+    const displayDays = current > 0 ? current : lastStreakDays();
+    const svg = generateIconSVG(displayDays);
+
+    // Update apple-touch-icon (iOS home screen / Safari pinned tab)
+    const appleIcon = document.getElementById('appleTouchIcon');
+    if (appleIcon) appleIcon.href = svg;
+
+    // Update favicon (browser tab / desktop shortcut)
+    const favicon = document.getElementById('favicon');
+    if (favicon) favicon.href = svg;
+
+    // Update manifest for PWA install
     setupManifest();
+
+    // Update taskbar/dock badge (Windows / macOS / Android)
+    if (navigator.setAppBadge) {
+      navigator.setAppBadge(displayDays).catch(function() {});
+    } else if (navigator.setClientBadge) {
+      navigator.setClientBadge(displayDays).catch(function() {});
+    }
   }
 
   function setCloudDot(state) {
@@ -1028,51 +1051,61 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
     const labels = data.streaks.map((_, i) => '#' + (i + 1));
     const values = data.streaks.map(s => s.days);
 
-    const trendData = values.length > 1 ? (() => {
+    // Centered moving average for a smooth, natural trend
+    const smoothedTrend = values.length > 1 ? (() => {
       const n = values.length;
-      const xMean = (n - 1) / 2;
-      const yMean = values.reduce((a, v) => a + v, 0) / n;
-      let num = 0, den = 0;
-      for (let i = 0; i < n; i++) {
-        num += (i - xMean) * (values[i] - yMean);
-        den += (i - xMean) ** 2;
-      }
-      const slope = den !== 0 ? num / den : 0;
-      const intercept = yMean - slope * xMean;
-      return values.map((_, i) => Math.max(0, Math.round(slope * i + intercept)));
+      return values.map((_, i) => {
+        let sum = 0, count = 0;
+        for (let j = Math.max(0, i - 1); j <= Math.min(n - 1, i + 1); j++) {
+          sum += values[j];
+          count++;
+        }
+        return Math.round((sum / count) * 10) / 10;
+      });
     })() : [];
+
+    // Mark the best streak for highlighting
+    const bestVal = values.length > 0 ? Math.max(...values) : 0;
 
     const maxY = Math.max(...values, 1);
 
     chart = new Chart(chartCtx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: labels,
         datasets: [
           {
-            label: 'Days',
+            label: 'Streak Days',
             data: values,
-            backgroundColor: values.map((v) => {
-              const max = Math.max(...values);
-              return v === max && v > 0 ? 'rgba(201,168,76,0.7)' : 'rgba(196,30,58,0.55)';
-            }),
-            borderColor: values.map((v) => {
-              const max = Math.max(...values);
-              return v === max && v > 0 ? 'rgba(201,168,76,0.9)' : 'rgba(196,30,58,0.8)';
-            }),
-            borderWidth: 1, borderRadius: 6, borderSkipped: false,
-          },
-          ...(trendData.length > 1 ? [{
-            label: 'Trend',
-            data: trendData,
-            type: 'line',
-            borderColor: 'rgba(107,155,210,0.8)',
-            backgroundColor: 'rgba(107,155,210,0.05)',
+            borderColor: 'rgba(196,30,58,0.9)',
+            backgroundColor: 'rgba(196,30,58,0.1)',
             borderWidth: 2.5,
-            pointRadius: 4,
+            pointRadius: values.map(v => v === bestVal && v > 0 ? 6 : 4),
+            pointBackgroundColor: values.map(v =>
+              v === bestVal && v > 0 ? 'rgba(201,168,76,1)' : 'rgba(196,30,58,1)'
+            ),
+            pointBorderColor: 'rgba(10,14,39,1)',
+            pointBorderWidth: 2,
+            tension: 0.5,
+            cubicInterpolationMode: 'monotone',
+            fill: true,
+            order: 2,
+          },
+          ...(smoothedTrend.length > 1 ? [{
+            label: 'Trend',
+            data: smoothedTrend,
+            borderColor: 'rgba(107,155,210,0.85)',
+            backgroundColor: 'rgba(107,155,210,0.08)',
+            borderWidth: 2.5,
+            borderDash: [6, 3],
+            pointRadius: 3,
             pointBackgroundColor: 'rgba(107,155,210,1)',
-            pointBorderColor: 'rgba(107,155,210,0.3)',
-            pointBorderWidth: 2, tension: 0.4, fill: true,
+            pointBorderColor: 'rgba(10,14,39,1)',
+            pointBorderWidth: 2,
+            tension: 0.5,
+            cubicInterpolationMode: 'monotone',
+            fill: true,
+            order: 1,
           }] : []),
         ],
       },
@@ -1116,17 +1149,25 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
         },
       },
       plugins: [{
-        id: 'trendGradient',
+        id: 'areaGradients',
         beforeDatasetsDraw(chart) {
-          const datasets = chart.data.datasets;
-          if (datasets.length < 2) return;
-          const ds = datasets[1];
           const { ctx, chartArea: { top, bottom } } = chart;
-          const gradient = ctx.createLinearGradient(0, top, 0, bottom);
-          gradient.addColorStop(0, 'rgba(107,155,210,0.32)');
-          gradient.addColorStop(0.65, 'rgba(107,155,210,0.06)');
-          gradient.addColorStop(1, 'rgba(107,155,210,0.0)');
-          ds.backgroundColor = gradient;
+
+          // Streak area gradient — warm red, fades to transparent
+          const streakGrad = ctx.createLinearGradient(0, top, 0, bottom);
+          streakGrad.addColorStop(0, 'rgba(196,30,58,0.42)');
+          streakGrad.addColorStop(0.45, 'rgba(196,30,58,0.12)');
+          streakGrad.addColorStop(1, 'rgba(196,30,58,0.0)');
+          chart.data.datasets[0].backgroundColor = streakGrad;
+
+          // Trend area gradient — cool blue, fades to transparent
+          if (chart.data.datasets.length > 1) {
+            const trendGrad = ctx.createLinearGradient(0, top, 0, bottom);
+            trendGrad.addColorStop(0, 'rgba(107,155,210,0.32)');
+            trendGrad.addColorStop(0.45, 'rgba(107,155,210,0.08)');
+            trendGrad.addColorStop(1, 'rgba(107,155,210,0.0)');
+            chart.data.datasets[1].backgroundColor = trendGrad;
+          }
         }
       }],
     });
@@ -1290,6 +1331,28 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   // ═══════════════════════════════════════
   // Cloud Config
   // ═══════════════════════════════════════
+  function saveConfigOnly() {
+    config.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+    config.supabaseKey = document.getElementById('supabaseKey').value.trim();
+    config.syncKey = document.getElementById('syncKey').value.trim();
+    saveConfig(config);
+    updateCloudStatusUI();
+    showToast('Config saved.');
+  }
+
+  function clearCloudConfig() {
+    document.getElementById('supabaseUrl').value = '';
+    document.getElementById('supabaseKey').value = '';
+    document.getElementById('syncKey').value = '';
+    config.supabaseUrl = '';
+    config.supabaseKey = '';
+    config.syncKey = '';
+    saveConfig(config);
+    setCloudDot('');
+    updateCloudStatusUI();
+    showToast('Config cleared.');
+  }
+
   async function saveCloudConfig() {
     config.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
     config.supabaseKey = document.getElementById('supabaseKey').value.trim();
@@ -1408,6 +1471,8 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   document.getElementById('btnGenCode').addEventListener('click', generateBackupCode);
   document.getElementById('btnCopyCode').addEventListener('click', copyBackupCode);
   document.getElementById('btnRestoreCode').addEventListener('click', restoreFromCode);
+  document.getElementById('btnSaveConfig').addEventListener('click', saveConfigOnly);
+  document.getElementById('btnClearConfig').addEventListener('click', clearCloudConfig);
   document.getElementById('btnSaveCloud').addEventListener('click', saveCloudConfig);
   document.getElementById('btnPullCloud').addEventListener('click', pullCloudData);
 
