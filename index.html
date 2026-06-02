@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" type="image/png" sizes="512x512" href="streak-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="streak-180.png">
+<link rel="manifest" href="manifest.json">
 <title>Streak</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -748,10 +749,6 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
     return getDaysSince(data.currentStart);
   }
 
-  function updateAppIcon() {
-    setupManifest();
-  }
-
   function setCloudDot(state) {
     const dot = document.getElementById('cloudDot');
     dot.className = 'cloud-dot ' + state;
@@ -991,7 +988,6 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
 
     renderChart();
     updateChartVisibility();
-    updateAppIcon();
   }
 
   function updateChartVisibility() {
@@ -1436,38 +1432,6 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   document.getElementById('btnClearConfig').addEventListener('click', clearCloudConfig);
   document.getElementById('btnSaveCloud').addEventListener('click', saveCloudConfig);
   document.getElementById('btnPullCloud').addEventListener('click', pullCloudData);
-
-  // ═══════════════════════════════════════
-  // Inline Manifest for PWA
-  // ═══════════════════════════════════════
-  function setupManifest() {
-    const manifest = {
-      name: 'Streak',
-      short_name: 'Streak',
-      description: 'Track your streak. Stay disciplined.',
-      display: 'standalone',
-      orientation: 'portrait',
-      background_color: '#000000',
-      theme_color: '#000000',
-      icons: [{
-        src: 'streak-512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'any maskable',
-      }],
-    };
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-    let link = document.getElementById('manifestLink');
-    if (!link) {
-      link = document.createElement('link');
-      link.id = 'manifestLink';
-      link.rel = 'manifest';
-      document.head.appendChild(link);
-    } else {
-      URL.revokeObjectURL(link.href);
-    }
-    link.href = URL.createObjectURL(blob);
-  }
 
   // ═══════════════════════════════════════
   // Init
