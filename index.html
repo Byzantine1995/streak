@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Streak">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#000000">
-<link rel="icon" type="image/svg+xml" id="favicon" href="">
-<link rel="apple-touch-icon" id="appleTouchIcon" href="">
+<link rel="icon" type="image/png" sizes="512x512" href="streak-icon.png">
+<link rel="apple-touch-icon" sizes="512x512" href="streak-icon.png">
 <title>Streak</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
@@ -748,47 +748,8 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
     return getDaysSince(data.currentStart);
   }
 
-  function lastStreakDays() {
-    if (data.streaks.length === 0) return 0;
-    return data.streaks[data.streaks.length - 1].days;
-  }
-
-  function generateIconSVG(days) {
-    const num = days >= 100 ? '99+' : String(days);
-    const fontSize = days >= 100 ? 140 : days >= 10 ? 220 : 240;
-    const y = days >= 100 ? 290 : 300;
-    return 'data:image/svg+xml,' + encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'
-      + '<rect width="512" height="512" rx="112" fill="#000000"/>'
-      + '<rect width="512" height="512" rx="112" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>'
-      + '<text x="256" y="' + y + '" fill="#ffffff" font-size="' + fontSize + '" font-weight="900" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle" font-stretch="condensed">' + num + '</text>'
-      + '<text x="256" y="400" fill="#ffffff" fill-opacity="0.45" font-size="52" font-weight="700" font-family="system-ui,-apple-system,sans-serif" text-anchor="middle" letter-spacing="8">DAYS</text>'
-      + '</svg>'
-    );
-  }
-
   function updateAppIcon() {
-    const current = getCurrentStreak();
-    const displayDays = current > 0 ? current : lastStreakDays();
-    const svg = generateIconSVG(displayDays);
-
-    // Update apple-touch-icon (iOS home screen / Safari pinned tab)
-    const appleIcon = document.getElementById('appleTouchIcon');
-    if (appleIcon) appleIcon.href = svg;
-
-    // Update favicon (browser tab / desktop shortcut)
-    const favicon = document.getElementById('favicon');
-    if (favicon) favicon.href = svg;
-
-    // Update manifest for PWA install
     setupManifest();
-
-    // Update taskbar/dock badge (Windows / macOS / Android)
-    if (navigator.setAppBadge) {
-      navigator.setAppBadge(displayDays).catch(function() {});
-    } else if (navigator.setClientBadge) {
-      navigator.setClientBadge(displayDays).catch(function() {});
-    }
   }
 
   function setCloudDot(state) {
@@ -1489,9 +1450,9 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
       background_color: '#000000',
       theme_color: '#000000',
       icons: [{
-        src: generateIconSVG(lastStreakDays()),
+        src: 'streak-icon.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
+        type: 'image/png',
         purpose: 'any maskable',
       }],
     };
