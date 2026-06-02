@@ -36,3 +36,17 @@
 ### 项目精简
 
 - 删除独立文件 `streak-tracker.html`，仅保留 `streak-repo/index.html` 作为唯一迭代目标
+
+## 2026-06-02 — 图标静态化
+
+### 诊断结论
+
+动态天数图标在已安装的 PWA 桌面图标上**无法更新**，这是 OS 级别的硬限制：
+- **iOS**：添加到桌面时截屏固化，无 API 可更改
+- **Android**：同 iOS，Badging API 仅支持 Chrome 且需 Service Worker，只显示小角标而非图标本身
+
+### 改动
+
+- 移除 `generateIconSVG()` / `lastStreakDays()` / Badging API 等全部动态图标逻辑
+- `favicon` / `apple-touch-icon` / `manifest` 统一使用静态 `streak-icon.png` (512×512)
+- `updateAppIcon()` 简化为仅刷新 manifest
