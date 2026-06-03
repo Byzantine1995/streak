@@ -666,15 +666,15 @@ ALTER TABLE streaks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</div>
         <div class="input-group">
           <label>Supabase Project URL</label>
-          <input type="url" id="supabaseUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off">
+          <input type="url" id="supabaseUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="url">
         </div>
         <div class="input-group">
           <label>Anon (Public) Key</label>
-          <input type="password" id="supabaseKey" placeholder="eyJhbGci..." autocomplete="off">
+          <input type="password" id="supabaseKey" placeholder="eyJhbGci..." autocomplete="current-password">
         </div>
         <div class="input-group">
           <label>Your Sync Key</label>
-          <input type="password" id="syncKey" placeholder="Choose a secret word or phrase" autocomplete="off">
+          <input type="password" id="syncKey" placeholder="Choose a secret word or phrase" autocomplete="current-password">
           <p class="hint">This identifies your data. Keep it private — anyone with this key can access your streaks.</p>
         </div>
         <div class="btn-row" style="margin-bottom:8px">
@@ -1170,6 +1170,16 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   }
 
   function closeSettings() {
+    // Auto-save any typed values before closing
+    var url = document.getElementById('supabaseUrl').value.trim();
+    var key = document.getElementById('supabaseKey').value.trim();
+    var sync = document.getElementById('syncKey').value.trim();
+    if (url || key || sync) {
+      config.supabaseUrl = url;
+      config.supabaseKey = key;
+      config.syncKey = sync;
+      saveConfig(config);
+    }
     $overlaySettings.classList.remove('active');
   }
 
