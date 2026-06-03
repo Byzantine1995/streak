@@ -686,6 +686,9 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
           <button class="btn btn-outline" id="btnPullCloud">Pull from Cloud</button>
         </div>
         <div class="cloud-status" id="cloudStatus" style="display:none"></div>
+        <p class="hint" style="margin-top:10px;color:#c9a84c" id="reAddHint" hidden>
+          &#9888; Settings saved to URL. <strong>Re-add to Home Screen</strong> now to keep cloud sync on your desktop icon.
+        </p>
       </div>
 
     </div>
@@ -721,7 +724,7 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
       const raw = localStorage.getItem(CONFIG_KEY);
       if (raw) return JSON.parse(raw);
     } catch(e) {}
-    // Fallback: try cookie (shared between Safari and iOS webclip)
+    // Fallback: try cookie
     try {
       const match = document.cookie.match(new RegExp('(?:^|; )' + CONFIG_KEY + '=([^;]*)'));
       if (match) {
@@ -733,15 +736,47 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   }
 
   function saveConfig(cfg) {
-    // Save to localStorage
     localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
-    // Also save to cookie (shared between Safari & iOS home screen webclip)
     try {
       const encoded = btoa(JSON.stringify(cfg));
       document.cookie = CONFIG_KEY + '=' + encodeURIComponent(encoded)
         + ';path=/;max-age=' + (365 * 24 * 60 * 60)
         + ';SameSite=Lax';
     } catch(e) {}
+    // Encode config into URL hash — survives iOS "Add to Home Screen"
+    try {
+      var compact = {
+        u: cfg.supabaseUrl || '',
+        k: cfg.supabaseKey || '',
+        s: cfg.syncKey || ''
+      };
+      var hash = '#cfg=' + btoa(JSON.stringify(compact));
+      if (window.location.hash !== hash) {
+        window.history.replaceState(null, '', hash);
+      }
+      // Show reminder to re-add to home screen
+      if (compact.u || compact.k || compact.s) {
+        var hint = document.getElementById('reAddHint');
+        if (hint) hint.hidden = false;
+      }
+    } catch(e) {}
+  }
+
+  // Restore config from URL hash on first load (iOS home screen webclip)
+  function loadConfigFromHash() {
+    try {
+      var m = window.location.hash.match(/^#cfg=(.+)$/);
+      if (!m) return false;
+      var parsed = JSON.parse(atob(m[1]));
+      if (!parsed || (!parsed.u && !parsed.k && !parsed.s)) return false;
+      config.supabaseUrl = parsed.u || '';
+      config.supabaseKey = parsed.k || '';
+      config.syncKey = parsed.s || '';
+      saveConfig(config);
+      // Clean hash after restoring
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return true;
+    } catch(e) { return false; }
   }
 
   let data = load();
@@ -1478,7 +1513,13 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   // ═══════════════════════════════════════
   // Init
   // ═══════════════════════════════════════
+  var restoredFromHash = loadConfigFromHash();
   render();
+
+  if (restoredFromHash) {
+    showToast('Settings restored! Cloud sync is ready.');
+    syncToCloud(data);
+  }
 
   // Configure cloud dot & attempt initial sync
   if (config.supabaseUrl && config.supabaseKey && config.syncKey) {
