@@ -716,15 +716,32 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   }
 
   function loadConfig() {
+    // Try localStorage first
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
       if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    // Fallback: try cookie (shared between Safari and iOS webclip)
+    try {
+      const match = document.cookie.match(new RegExp('(?:^|; )' + CONFIG_KEY + '=([^;]*)'));
+      if (match) {
+        const decoded = decodeURIComponent(match[1]);
+        return JSON.parse(atob(decoded));
+      }
     } catch(e) {}
     return { supabaseUrl: '', supabaseKey: '', syncKey: '' };
   }
 
   function saveConfig(cfg) {
+    // Save to localStorage
     localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    // Also save to cookie (shared between Safari & iOS home screen webclip)
+    try {
+      const encoded = btoa(JSON.stringify(cfg));
+      document.cookie = CONFIG_KEY + '=' + encodeURIComponent(encoded)
+        + ';path=/;max-age=' + (365 * 24 * 60 * 60)
+        + ';SameSite=Lax';
+    } catch(e) {}
   }
 
   let data = load();
@@ -1161,7 +1178,8 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   // Settings Panel
   // ═══════════════════════════════════════
   function openSettings() {
-    // Populate fields
+    // Always re-read fresh from storage (not in-memory cache)
+    config = loadConfig();
     document.getElementById('supabaseUrl').value = config.supabaseUrl || '';
     document.getElementById('supabaseKey').value = config.supabaseKey || '';
     document.getElementById('syncKey').value = config.syncKey || '';
