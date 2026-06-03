@@ -1459,6 +1459,22 @@ CREATE POLICY "all_access" ON streaks FOR ALL USING (true) WITH CHECK (true);</d
   document.getElementById('btnSaveCloud').addEventListener('click', saveCloudConfig);
   document.getElementById('btnPullCloud').addEventListener('click', pullCloudData);
 
+  // Auto-save cloud config whenever any field changes (Safari autofill triggers this)
+  ['supabaseUrl', 'supabaseKey', 'syncKey'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', function() {
+      config.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+      config.supabaseKey = document.getElementById('supabaseKey').value.trim();
+      config.syncKey = document.getElementById('syncKey').value.trim();
+      saveConfig(config);
+    });
+    document.getElementById(id).addEventListener('blur', function() {
+      config.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+      config.supabaseKey = document.getElementById('supabaseKey').value.trim();
+      config.syncKey = document.getElementById('syncKey').value.trim();
+      saveConfig(config);
+    });
+  });
+
   // ═══════════════════════════════════════
   // Init
   // ═══════════════════════════════════════
